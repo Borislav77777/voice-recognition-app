@@ -1,3 +1,7 @@
+
+   - Вставьте этот код:
+
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -48,7 +52,6 @@
         .start { background-color: #4CAF50; color: white; }
         .stop { background-color: #f44336; color: white; }
         .clear { background-color: #9e9e9e; color: white; }
-        .copy { background-color: #2196F3; color: white; }
         button:hover { opacity: 0.9; }
         .status {
             text-align: center;
@@ -65,7 +68,6 @@
             <button class="start" onclick="startRecognition()">Старт</button>
             <button class="stop" onclick="stopRecognition()">Стоп</button>
             <button class="clear" onclick="clearText()">Очистить</button>
-            <button class="copy" onclick="copyText()">Копировать</button>
         </div>
         <div class="status" id="status"></div>
     </div>
@@ -146,20 +148,9 @@
             updateStatus('');
         }
 
-        function copyText() {
-            const text = document.getElementById('output').value;
-            if (!text) {
-                updateStatus('Нечего копировать');
-                return;
-            }
-            
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    updateStatus('Текст скопирован!');
-                    setTimeout(() => updateStatus(''), 2000);
-                })
-                .catch(err => {
-                    updateStatus('Ошибка при копировании');
-                    console.error('Ошибка:', err);
-                });
-        }
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initRecognition);
+    </script>
+</body>
+</html>
+```
