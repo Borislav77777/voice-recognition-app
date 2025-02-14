@@ -121,17 +121,6 @@
             padding: 0 10px;
         }
 
-        /* Иконки для кнопок */
-        .toggle::before {
-            content: '🎤';
-            font-size: 18px;
-        }
-
-        .clear::before {
-            content: '🗑️';
-            font-size: 18px;
-        }
-
         /* Адаптивность для мобильных устройств */
         @media (max-width: 600px) {
             body {
@@ -213,8 +202,8 @@
         <h1>Распознавание речи</h1>
         <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
         <div class="buttons">
-            <button class="toggle" onclick="toggleRecognition()">Старт</button>
-            <button class="clear" onclick="clearText()">Очистить</button>
+            <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
+            <button class="clear" onclick="clearText()">🗑️ Очистить</button>
         </div>
         <div class="status" id="status"></div>
     </div>
