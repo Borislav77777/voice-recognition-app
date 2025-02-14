@@ -200,10 +200,49 @@
             100% { transform: translate(-50%, -50%) rotate(360deg); }
         }
 
-        .message-time {
-            font-size: 0.8em;
-            opacity: 0.7;
-            margin-top: 5px;
+        .api-key-input {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .api-key-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .api-key-input button {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ccc;
+        }
+
+        .status-dot.active {
+            background-color: #2ecc71;
+        }
+
+        .status-dot.error {
+            background-color: #e74c3c;
         }
 
         @media (max-width: 900px) {
@@ -229,6 +268,7 @@
 </head>
 <body>
     <div class="main-container">
+        <!-- Левая часть - Распознавание речи -->
         <div class="speech-container">
             <h1>Распознавание речи</h1>
             <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
@@ -240,12 +280,25 @@
             <div class="status" id="status"></div>
         </div>
 
+        <!-- Правая часть - AI ответы -->
         <div class="ai-container">
             <h1>AI Ассистент</h1>
             <div class="settings-panel">
+                <div class="api-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Статус API: проверка...</span>
+                </div>
                 <select id="ai-model" onchange="changeModel()">
-                    <option value="saiga">Saiga (Сбер)</option>
+                    <option value="gigachat">GigaChat (Сбер)</option>
+                    <option value="openassistant">OpenAssistant (Бесплатно)</option>
+                    <option value="yandexgpt">Yandex GPT</option>
+                    <option value="gpt4all">GPT4All (Локально)</option>
+                    <option value="claude">Claude-2</option>
                 </select>
+                <div class="api-key-input" style="display: none;">
+                    <input type="password" id="custom-api-key" placeholder="Введите API ключ">
+                    <button onclick="saveApiKey()">Сохранить ключ</button>
+                </div>
             </div>
             <div class="chat-container" id="chat"></div>
             <div class="buttons">
@@ -253,6 +306,7 @@
             </div>
         </div>
     </div>
+
     <script>
         // Инициализация переменных для распознавания речи
         let recognition = null;
@@ -260,13 +314,23 @@
         
         // API ключи
         const API_KEYS = {
-            saiga: 'MTNmYWU5ZDctNGNmZS00YWIyLWJlN2EtODY2OTYwNmU1MjllOmQyMTJmOGEwLWE1YzUtNDNjMC1iOGI4LTdiMWUxYzY4Y2RlYg=='
+            gigachat: localStorage.getItem('gigachat_key') || '',
+            yandexgpt: localStorage.getItem('yandex_key') || '',
+            claude: localStorage.getItem('claude_key') || '',
+            openassistant: 'public-free'
         };
 
-        let currentModel = 'saiga';
-        let dialogHistory = [];
+        const API_ENDPOINTS = {
+            gigachat: 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
+            yandexgpt: 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
+            claude: 'https://api.anthropic.com/v1/messages',
+            openassistant: 'https://api.openassistant.xyz/v1/chat',
+            gpt4all: 'http://localhost:4891/v1/chat/completions'
+        };
 
-        // Инициализация распознавания речи
+        let currentModel = 'openassistant';
+        let dialogHistory = [];
+                // Инициализация распознавания речи
         function initRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
                 alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
@@ -333,6 +397,144 @@
             }
         }
 
+        // Функция изменения модели
+        function changeModel() {
+            currentModel = document.getElementById('ai-model').value;
+            const apiKeyInput = document.querySelector('.api-key-input');
+            
+            if (['gigachat', 'yandexgpt', 'claude'].includes(currentModel)) {
+                apiKeyInput.style.display = 'block';
+            } else {
+                apiKeyInput.style.display = 'none';
+            }
+            
+            if (currentModel === 'gpt4all') {
+                checkGPT4AllServer();
+            }
+
+            updateApiStatus();
+        }
+
+        // Проверка статуса API
+        async function updateApiStatus() {
+            const statusDot = document.querySelector('.status-dot');
+            const statusText = document.querySelector('.status-text');
+            
+            try {
+                if (currentModel === 'openassistant') {
+                    statusDot.className = 'status-dot active';
+                    statusText.textContent = 'Статус API: Доступен';
+                    return;
+                }
+
+                const hasKey = API_KEYS[currentModel] && API_KEYS[currentModel].length > 0;
+                if (!hasKey) {
+                    statusDot.className = 'status-dot error';
+                    statusText.textContent = 'Статус API: Требуется ключ';
+                    return;
+                }
+
+                const isValid = await validateApiKey(currentModel, API_KEYS[currentModel]);
+                statusDot.className = `status-dot ${isValid ? 'active' : 'error'}`;
+                statusText.textContent = `Статус API: ${isValid ? 'Доступен' : 'Ошибка'}`;
+            } catch (error) {
+                statusDot.className = 'status-dot error';
+                statusText.textContent = 'Статус API: Ошибка подключения';
+            }
+        }
+                // Валидация API ключей
+        async function validateApiKey(model, key) {
+            try {
+                let isValid = false;
+                switch(model) {
+                    case 'gigachat':
+                        const gigaResponse = await fetch(API_ENDPOINTS.gigachat, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${key}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{ role: "user", content: "test" }],
+                                max_tokens: 1
+                            })
+                        });
+                        isValid = gigaResponse.ok;
+                        break;
+
+                    case 'yandexgpt':
+                        const yandexResponse = await fetch(API_ENDPOINTS.yandexgpt, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Api-Key ${key}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                modelUri: "gpt://yandexgpt-lite",
+                                completionOptions: {
+                                    stream: false,
+                                    temperature: 0.6,
+                                    maxTokens: "1"
+                                },
+                                messages: [{ role: "user", text: "test" }]
+                            })
+                        });
+                        isValid = yandexResponse.ok;
+                        break;
+
+                    case 'claude':
+                        const claudeResponse = await fetch(API_ENDPOINTS.claude, {
+                            method: 'POST',
+                            headers: {
+                                'x-api-key': key,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{ role: "user", content: "test" }],
+                                model: "claude-2",
+                                max_tokens: 1
+                            })
+                        });
+                        isValid = claudeResponse.ok;
+                        break;
+                }
+                return isValid;
+            } catch (error) {
+                console.error('Ошибка валидации ключа:', error);
+                return false;
+            }
+        }
+
+        // Сохранение API ключа
+        async function saveApiKey() {
+            const key = document.getElementById('custom-api-key').value;
+            if (!key) {
+                alert('Введите API ключ');
+                return;
+            }
+
+            const isValid = await validateApiKey(currentModel, key);
+            if (isValid) {
+                localStorage.setItem(`${currentModel}_key`, key);
+                API_KEYS[currentModel] = key;
+                alert('API ключ успешно сохранен и проверен!');
+                updateApiStatus();
+            } else {
+                alert('Неверный API ключ или ошибка проверки');
+            }
+        }
+
+        // Проверка локального сервера GPT4All
+        async function checkGPT4AllServer() {
+            try {
+                const response = await fetch('http://localhost:4891/health');
+                if (!response.ok) throw new Error('GPT4All сервер недоступен');
+                updateStatus('GPT4All сервер доступен');
+            } catch (error) {
+                updateStatus('Ошибка: GPT4All сервер не запущен. Запустите локальный сервер.');
+            }
+        }
+
         // Обновление статуса
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
@@ -344,7 +546,13 @@
             updateStatus('');
         }
 
-        // Добавление сообщения в чат
+        // Очистка истории
+        function clearHistory() {
+            dialogHistory = [];
+            document.getElementById('chat').innerHTML = '';
+            localStorage.removeItem('dialogHistory');
+        }
+                // Добавление сообщения в чат
         function addMessage(text, type) {
             const chat = document.getElementById('chat');
             const messageDiv = document.createElement('div');
@@ -365,13 +573,6 @@
             // Сохраняем в историю
             dialogHistory.push({ text, type, time: new Date().toISOString() });
             saveHistory();
-        }
-
-        // Очистка истории
-        function clearHistory() {
-            dialogHistory = [];
-            document.getElementById('chat').innerHTML = '';
-            localStorage.removeItem('dialogHistory');
         }
 
         // Сохранение истории
@@ -414,25 +615,27 @@
             aiContainer.classList.add('loading');
 
             try {
-                const response = await fetch('https://api.aicloud.sbercloud.ru/public/v2/boltalka/predict', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEYS.saiga}`
-                    },
-                    body: JSON.stringify({
-                        text: text
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Ошибка API: ${response.status}`);
+                let response;
+                switch(currentModel) {
+                    case 'gigachat':
+                        response = await callGigaChat(text);
+                        break;
+                    case 'openassistant':
+                        response = await callOpenAssistant(text);
+                        break;
+                    case 'yandexgpt':
+                        response = await callYandexGPT(text);
+                        break;
+                    case 'gpt4all':
+                        response = await callGPT4All(text);
+                        break;
+                    case 'claude':
+                        response = await callClaude(text);
+                        break;
+                    default:
+                        throw new Error('Неизвестная модель');
                 }
-
-                const data = await response.json();
-                const aiResponse = data.predictions[0].text;
-                addMessage(aiResponse, 'ai');
-
+                addMessage(response, 'ai');
             } catch (error) {
                 console.error('Error:', error);
                 addMessage(`Ошибка: ${error.message}`, 'error');
@@ -441,11 +644,318 @@
             }
         }
 
+        // Функции вызова различных API
+        async function callGigaChat(text) {
+            if (!API_KEYS.gigachat) throw new Error('Требуется API ключ для GigaChat');
+            
+            const response = await fetch(API_ENDPOINTS.gigachat, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEYS.gigachat}`
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`GigaChat API Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        async function callYandexGPT(text) {
+            if (!API_KEYS.yandexgpt) throw new Error('Требуется API ключ для YandexGPT');
+            
+            const response = await fetch(API_ENDPOINTS.yandexgpt, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Api-Key ${API_KEYS.yandexgpt}`
+                },
+                body: JSON.stringify({
+                    modelUri: `gpt://yandexgpt-lite`,
+                    completionOptions: {
+                        stream: false,
+                        temperature: 0.6,
+                        maxTokens: "2000"
+                    },
+                    messages: [{ role: "user", text: text }]
+                })
+            });
+
+            if (!response.ok) throw new Error(`YandexGPT API Error: ${response.status}`);
+            const data = await response.json();
+            return data.result.alternatives[0].message.text;
+        }
+
+        async function callGPT4All(text) {
+            const response = await fetch(API_ENDPOINTS.gpt4all, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`GPT4All Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        async function callClaude(text) {
+            if (!API_KEYS.claude) throw new Error('Требуется API ключ для Claude-2');
+            
+            const response = await fetch(API_ENDPOINTS.claude, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': API_KEYS.claude,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    model: "claude-2",
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`Claude API Error: ${response.status}`);
+            const data = await response.json();
+            return data.content[0].text;
+        }
+
+        async function callOpenAssistant(text) {
+            const response = await fetch(API_ENDPOINTS.openassistant, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }]
+                })
+            });
+
+            if (!response.ok) throw new Error(`OpenAssistant Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initRecognition();
             loadHistory();
+            updateApiStatus();
         });
     </script>
 </body>
-</html>    
+</html>        // Добавление сообщения в чат
+        function addMessage(text, type) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            const textDiv = document.createElement('div');
+            textDiv.textContent = text;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            messageDiv.appendChild(textDiv);
+            messageDiv.appendChild(timeDiv);
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+
+            // Сохраняем в историю
+            dialogHistory.push({ text, type, time: new Date().toISOString() });
+            saveHistory();
+        }
+
+        // Сохранение истории
+        function saveHistory() {
+            localStorage.setItem('dialogHistory', JSON.stringify(dialogHistory));
+        }
+
+        // Загрузка истории
+        function loadHistory() {
+            const saved = localStorage.getItem('dialogHistory');
+            if (saved) {
+                dialogHistory = JSON.parse(saved);
+                dialogHistory.forEach(msg => {
+                    const chat = document.getElementById('chat');
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${msg.type}-message`;
+                    
+                    const textDiv = document.createElement('div');
+                    textDiv.textContent = msg.text;
+                    
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'message-time';
+                    timeDiv.textContent = new Date(msg.time).toLocaleTimeString();
+                    
+                    messageDiv.appendChild(textDiv);
+                    messageDiv.appendChild(timeDiv);
+                    chat.appendChild(messageDiv);
+                });
+            }
+        }
+
+        // Отправка запроса к AI
+        async function sendToAI() {
+            const text = document.getElementById('output').value;
+            if (!text) return;
+
+            addMessage(text, 'user');
+            
+            const aiContainer = document.querySelector('.ai-container');
+            aiContainer.classList.add('loading');
+
+            try {
+                let response;
+                switch(currentModel) {
+                    case 'gigachat':
+                        response = await callGigaChat(text);
+                        break;
+                    case 'openassistant':
+                        response = await callOpenAssistant(text);
+                        break;
+                    case 'yandexgpt':
+                        response = await callYandexGPT(text);
+                        break;
+                    case 'gpt4all':
+                        response = await callGPT4All(text);
+                        break;
+                    case 'claude':
+                        response = await callClaude(text);
+                        break;
+                    default:
+                        throw new Error('Неизвестная модель');
+                }
+                addMessage(response, 'ai');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`Ошибка: ${error.message}`, 'error');
+            } finally {
+                aiContainer.classList.remove('loading');
+            }
+        }
+
+        // Функции вызова различных API
+        async function callGigaChat(text) {
+            if (!API_KEYS.gigachat) throw new Error('Требуется API ключ для GigaChat');
+            
+            const response = await fetch(API_ENDPOINTS.gigachat, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEYS.gigachat}`
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`GigaChat API Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        async function callYandexGPT(text) {
+            if (!API_KEYS.yandexgpt) throw new Error('Требуется API ключ для YandexGPT');
+            
+            const response = await fetch(API_ENDPOINTS.yandexgpt, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Api-Key ${API_KEYS.yandexgpt}`
+                },
+                body: JSON.stringify({
+                    modelUri: `gpt://yandexgpt-lite`,
+                    completionOptions: {
+                        stream: false,
+                        temperature: 0.6,
+                        maxTokens: "2000"
+                    },
+                    messages: [{ role: "user", text: text }]
+                })
+            });
+
+            if (!response.ok) throw new Error(`YandexGPT API Error: ${response.status}`);
+            const data = await response.json();
+            return data.result.alternatives[0].message.text;
+        }
+
+        async function callGPT4All(text) {
+            const response = await fetch(API_ENDPOINTS.gpt4all, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    temperature: 0.7,
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`GPT4All Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        async function callClaude(text) {
+            if (!API_KEYS.claude) throw new Error('Требуется API ключ для Claude-2');
+            
+            const response = await fetch(API_ENDPOINTS.claude, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': API_KEYS.claude,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }],
+                    model: "claude-2",
+                    max_tokens: 1000
+                })
+            });
+
+            if (!response.ok) throw new Error(`Claude API Error: ${response.status}`);
+            const data = await response.json();
+            return data.content[0].text;
+        }
+
+        async function callOpenAssistant(text) {
+            const response = await fetch(API_ENDPOINTS.openassistant, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: text }]
+                })
+            });
+
+            if (!response.ok) throw new Error(`OpenAssistant Error: ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            initRecognition();
+            loadHistory();
+            updateApiStatus();
+        });
+    </script>
+</body>
+</html>
