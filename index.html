@@ -3,301 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Распознавание речи</title>
+    <title>AI Ассистент</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* Существующие стили... */
 
-        body {
-            font-family: 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            padding: 20px;
+        /* Добавляем новые стили для разделения экрана */
+        .main-container {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 100vh;
+            padding: 20px;
         }
 
-        .container {
+        .speech-container, .ai-container {
+            flex: 1;
             background-color: white;
             padding: 30px;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 800px;
-            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            overflow: hidden;
         }
 
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            font-size: 2em;
-            margin-bottom: 30px;
-            font-weight: 700;
+        .model-selector {
+            margin-bottom: 20px;
         }
 
-        textarea {
+        .model-selector select {
             width: 100%;
-            height: 200px;
-            margin: 20px 0;
-            padding: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            font-size: 14px;
+            background-color: white;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
             border: 2px solid #e0e0e0;
             border-radius: 15px;
-            font-size: 16px;
-            resize: vertical;
-            transition: all 0.3s ease;
-            font-family: 'Roboto', sans-serif;
-            line-height: 1.5;
+            margin-bottom: 20px;
         }
 
-        textarea:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 10px rgba(52, 152, 219, 0.1);
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%;
         }
 
-        .buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 25px;
-            font-size: 16px;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            min-width: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        button:active {
-            transform: scale(0.95);
-        }
-
-        .toggle {
+        .user-message {
             background-color: #3498db;
             color: white;
+            margin-left: auto;
         }
 
-        .toggle:hover {
-            background-color: #2980b9;
+        .ai-message {
+            background-color: #f0f0f0;
+            color: #333;
         }
 
-        .toggle.active {
-            background-color: #e74c3c;
-        }
-
-        .toggle.active:hover {
-            background-color: #c0392b;
-        }
-
-        .clear {
-            background-color: #95a5a6;
+        .send-button {
+            background-color: #2ecc71;
             color: white;
-        }
-
-        .clear:hover {
-            background-color: #7f8c8d;
-        }
-
-        .status {
-            text-align: center;
-            margin-top: 20px;
-            color: #7f8c8d;
-            font-size: 14px;
-            min-height: 20px;
-            padding: 0 10px;
+            margin-left: 10px;
         }
 
         /* Адаптивность для мобильных устройств */
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
             }
 
-            .container {
-                padding: 20px;
-                border-radius: 15px;
+            .speech-container, .ai-container {
+                width: 100%;
+                max-height: none;
             }
-
-            h1 {
-                font-size: 1.5em;
-                margin-bottom: 20px;
-            }
-
-            textarea {
-                height: 150px;
-                padding: 15px;
-                font-size: 14px;
-                margin: 15px 0;
-            }
-
-            button {
-                padding: 10px 20px;
-                font-size: 14px;
-                min-width: 100px;
-            }
-
-            .status {
-                font-size: 12px;
-            }
-        }
-
-        /* Темная тема */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            }
-
-            .container {
-                background-color: #2c3e50;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            }
-
-            h1 {
-                color: #ecf0f1;
-            }
-
-            textarea {
-                background-color: #34495e;
-                border-color: #465c6e;
-                color: #ecf0f1;
-            }
-
-            textarea::placeholder {
-                color: #95a5a6;
-            }
-
-            .status {
-                color: #bdc3c7;
-            }
-        }
-
-        /* Анимации */
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        .toggle.active {
-            animation: pulse 2s infinite;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Распознавание речи</h1>
-        <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
-        <div class="buttons">
-            <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
-            <button class="clear" onclick="clearText()">🗑️ Очистить</button>
+    <div class="main-container">
+        <!-- Левая часть - Распознавание речи -->
+        <div class="speech-container">
+            <h1>Распознавание речи</h1>
+            <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
+            <div class="buttons">
+                <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
+                <button class="clear" onclick="clearText()">🗑️ Очистить</button>
+                <button class="send-button" onclick="sendToAI()">📤 Отправить</button>
+            </div>
+            <div class="status" id="status"></div>
         </div>
-        <div class="status" id="status"></div>
+
+        <!-- Правая часть - AI ответы -->
+        <div class="ai-container">
+            <h1>AI Ассистент</h1>
+            <div class="model-selector">
+                <select id="ai-model" onchange="changeModel()">
+                    <option value="saiga">Saiga (Сбер)</option>
+                    <option value="openassistant">OpenAssistant</option>
+                    <option value="huggingface">HuggingFace</option>
+                </select>
+            </div>
+            <div class="chat-container" id="chat">
+                <!-- Сообщения будут добавляться здесь -->
+            </div>
+        </div>
     </div>
 
     <script>
-        let recognition = null;
-        let isRecognizing = false;
-        
-        function updateStatus(message) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.style.opacity = '1';
-            if (message) {
-                status.style.animation = 'fadeIn 0.3s';
-            }
+        // Существующий код распознавания речи...
+
+        // Добавляем новые функции для работы с AI
+        let currentModel = 'saiga';
+        const API_ENDPOINTS = {
+            saiga: 'https://api.aicloud.sbercloud.ru/public/v2/boltalka/predict',
+            openassistant: 'https://api.openassistant.io/v1/chat',
+            huggingface: 'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill'
+        };
+
+        function changeModel() {
+            currentModel = document.getElementById('ai-model').value;
+            updateStatus(`Модель изменена на ${currentModel}`);
         }
 
-        function initRecognition() {
-            if (!('webkitSpeechRecognition' in window)) {
-                alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
-                return;
-            }
+        async function sendToAI() {
+            const text = document.getElementById('output').value;
+            if (!text) return;
 
-            recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'ru-RU';
-            
-            recognition.onstart = () => {
-                updateStatus('Распознавание запущено. Говорите...');
-                const toggleBtn = document.querySelector('.toggle');
-                toggleBtn.textContent = '🎤 Стоп';
-                toggleBtn.classList.add('active');
-            };
-            
-            recognition.onend = () => {
-                updateStatus('Распознавание остановлено');
-                const toggleBtn = document.querySelector('.toggle');
-                toggleBtn.textContent = '🎤 Старт';
-                toggleBtn.classList.remove('active');
-                isRecognizing = false;
-            };
-            
-            recognition.onerror = (event) => {
-                updateStatus('Ошибка: ' + event.error);
-                isRecognizing = false;
-                const toggleBtn = document.querySelector('.toggle');
-                toggleBtn.textContent = '🎤 Старт';
-                toggleBtn.classList.remove('active');
-            };
-            
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
-                    }
+            // Добавляем сообщение пользователя
+            addMessage(text, 'user');
+
+            try {
+                let response;
+                switch(currentModel) {
+                    case 'saiga':
+                        response = await callSaigaAPI(text);
+                        break;
+                    case 'openassistant':
+                        response = await callOpenAssistantAPI(text);
+                        break;
+                    case 'huggingface':
+                        response = await callHuggingFaceAPI(text);
+                        break;
                 }
                 
-                const output = document.getElementById('output');
-                output.value = finalTranscript || interimTranscript;
-            };
-        }
-        
-        function toggleRecognition() {
-            if (!recognition) initRecognition();
-            if (!recognition) return;
-            
-            if (!isRecognizing) {
-                recognition.start();
-                isRecognizing = true;
-            } else {
-                recognition.stop();
-                isRecognizing = false;
-                updateStatus('Распознавание остановлено');
+                // Добавляем ответ AI
+                addMessage(response, 'ai');
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('Ошибка при получении ответа');
             }
         }
-        
-        function clearText() {
-            const output = document.getElementById('output');
-            output.value = '';
-            updateStatus('');
-            output.style.animation = 'none';
-            output.offsetHeight; // триггер перерисовки
-            output.style.animation = null;
+
+        function addMessage(text, type) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.textContent = text;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
         }
 
-        // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', initRecognition);
+        // Примеры функций для работы с API
+        async function callSaigaAPI(text) {
+            // Здесь будет реализация вызова API Saiga
+            return "Ответ от Saiga...";
+        }
+
+        async function callOpenAssistantAPI(text) {
+            // Здесь будет реализация вызова API OpenAssistant
+            return "Ответ от OpenAssistant...";
+        }
+
+        async function callHuggingFaceAPI(text) {
+            // Здесь будет реализация вызова API HuggingFace
+            return "Ответ от HuggingFace...";
+        }
     </script>
 </body>
 </html>
