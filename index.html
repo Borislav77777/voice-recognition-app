@@ -179,7 +179,7 @@
         let recognition = null;
         let isRecognizing = false;
         let finalTranscript = '';
-        let interimTranscript = '';
+        let currentSession = '';
 
         function initRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
@@ -199,6 +199,7 @@
                 toggleBtn.textContent = '🛑 Стоп';
                 toggleBtn.classList.add('active');
                 isRecognizing = true;
+                currentSession = '';
             };
             
             recognition.onend = () => {
@@ -210,6 +211,10 @@
                     const toggleBtn = document.querySelector('.toggle');
                     toggleBtn.textContent = '🎤 Старт';
                     toggleBtn.classList.remove('active');
+                    if (currentSession.trim()) {
+                        finalTranscript += ' ' + currentSession.trim();
+                        document.getElementById('output1').value = finalTranscript;
+                    }
                 }
             };
             
@@ -219,25 +224,29 @@
             };
             
             recognition.onresult = (event) => {
-                console.log('Got result:', event.results);
-                interimTranscript = '';
+                let interimTranscript = '';
+                let hasNewFinal = false;
                 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
                     
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                        // Обновляем первый распознаватель (пофразовый)
-                        document.getElementById('output1').value = finalTranscript;
+                        hasNewFinal = true;
+                        finalTranscript += ' ' + transcript;
+                        currentSession = '';
                     } else {
                         interimTranscript += transcript;
                     }
                 }
                 
-                // Обновляем второй распознаватель (синхронный)
-                document.getElementById('output2').value = finalTranscript + interimTranscript;
+                currentSession = interimTranscript;
                 
-                // Прокручиваем текстовые поля
+                if (hasNewFinal) {
+                    document.getElementById('output1').value = finalTranscript.trim();
+                }
+                
+                document.getElementById('output2').value = (finalTranscript + ' ' + currentSession).trim();
+                
                 const outputs = document.querySelectorAll('textarea');
                 outputs.forEach(output => {
                     output.scrollTop = output.scrollHeight;
@@ -256,8 +265,10 @@
             
             if (!isRecognizing) {
                 try {
-                    finalTranscript = ''; // Очищаем при новом старте
-                    interimTranscript = '';
+                    finalTranscript = '';
+                    currentSession = '';
+                    document.getElementById('output1').value = '';
+                    document.getElementById('output2').value = '';
                     recognition.start();
                 } catch (e) {
                     console.error('Start error:', e);
@@ -276,7 +287,7 @@
 
         function clearBoth() {
             finalTranscript = '';
-            interimTranscript = '';
+            currentSession = '';
             document.getElementById('output1').value = '';
             document.getElementById('output2').value = '';
             updateStatus('');
@@ -287,7 +298,6 @@
             document.getElementById('status2').textContent = message;
         }
 
-        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initRecognition();
         });
