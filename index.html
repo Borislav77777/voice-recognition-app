@@ -124,7 +124,70 @@
             margin-right: 10px;
         }
 
-        h1 {
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .action-types {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .action-list {
+            margin: 15px 0;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .action-item input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .command-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #e1f5fe;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            text-align: right;
+        }
+                h1 {
             color: #2c3e50;
             text-align: center;
             font-size: 1.5em;
@@ -249,27 +312,120 @@
         </div>
     </div>
 
-    <script>
+    <!-- Модальное окно для действий -->
+    <div id="actionModal" class="modal">
+        <div class="modal-content">
+            <h2>Действия для команды: <span id="currentCommandText"></span></h2>
+            <div class="action-types">
+                <button onclick="addAction('folder')">📁 Открыть папку</button>
+                <button onclick="addAction('url')">🌐 Открыть ссылку</button>
+            </div>
+            <div id="actionsList"></div>
+            <div class="modal-footer">
+                <button onclick="closeActionModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+        <script>
         let recognition = null;
         let isRecognizing = false;
         let finalTranscript = '';
         let currentSession = '';
-        let commands = new Set();
+        let commands = new Map();
         let isEditing = false;
 
         function addCommand() {
             const input = document.getElementById('newCommand');
-            const command = input.value.trim().toLowerCase();
+            const commandText = input.value.trim().toLowerCase();
             
-            if (command && !commands.has(command)) {
-                commands.add(command);
+            if (commandText && !commands.has(commandText)) {
+                commands.set(commandText, {
+                    text: commandText,
+                    actions: []
+                });
                 updateCommandsList();
                 input.value = '';
             }
         }
 
-        function deleteCommand(command) {
-            commands.delete(command);
+        function openActionModal(commandText) {
+            const modal = document.getElementById('actionModal');
+            const commandSpan = document.getElementById('currentCommandText');
+            commandSpan.textContent = commandText;
+            modal.style.display = 'block';
+            updateActionsList(commandText);
+        }
+
+        function closeActionModal() {
+            document.getElementById('actionModal').style.display = 'none';
+        }
+
+        function addAction(type) {
+            const commandText = document.getElementById('currentCommandText').textContent;
+            const command = commands.get(commandText);
+            
+            if (command) {
+                const action = {
+                    type: type,
+                    path: '',
+                    id: Date.now()
+                };
+                command.actions.push(action);
+                updateActionsList(commandText);
+            }
+        }
+
+        function updateActionsList(commandText) {
+            const actionsList = document.getElementById('actionsList');
+            const command = commands.get(commandText);
+            
+            if (!command) return;
+            
+            actionsList.innerHTML = '';
+            command.actions.forEach(action => {
+                const actionItem = document.createElement('div');
+                actionItem.className = 'action-item';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = action.path;
+                input.placeholder = action.type === 'folder' ? 'Путь к папке...' : 'URL...';
+                
+                input.onchange = (e) => {
+                    action.path = e.target.value;
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️';
+                deleteBtn.onclick = () => {
+                    command.actions = command.actions.filter(a => a.id !== action.id);
+                    updateActionsList(commandText);
+                };
+                
+                actionItem.appendChild(document.createTextNode(action.type === 'folder' ? '📁 ' : '🌐 '));
+                actionItem.appendChild(input);
+                actionItem.appendChild(deleteBtn);
+                actionsList.appendChild(actionItem);
+            });
+        }
+
+        function executeActions(commandText) {
+            const command = commands.get(commandText);
+            if (command && command.actions.length > 0) {
+                command.actions.forEach(action => {
+                    if (action.path) {
+                        if (action.type === 'url') {
+                            window.open(action.path, '_blank');
+                        } else if (action.type === 'folder') {
+                            window.open('file:///' + action.path);
+                        }
+                    }
+                });
+            }
+        }
+
+        function deleteCommand(commandText) {
+            commands.delete(commandText);
             updateCommandsList();
         }
 
@@ -291,8 +447,10 @@
             saveBtn.onclick = () => {
                 const newCommand = input.value.trim().toLowerCase();
                 if (newCommand && newCommand !== oldCommand) {
+                    const commandData = commands.get(oldCommand);
                     commands.delete(oldCommand);
-                    commands.add(newCommand);
+                    commandData.text = newCommand;
+                    commands.set(newCommand, commandData);
                 }
                 updateCommandsList();
                 isEditing = false;
@@ -303,7 +461,6 @@
             input.focus();
             isEditing = true;
 
-            // Добавляем обработчик клавиши Enter
             input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     saveBtn.click();
@@ -318,13 +475,18 @@
             commands.forEach(command => {
                 const item = document.createElement('div');
                 item.className = 'command-item';
-                item.setAttribute('data-command', command);
+                item.setAttribute('data-command', command.text);
+                
+                const actionsCount = command.actions.length;
+                const actionsBadge = actionsCount > 0 ? 
+                    `<span class="command-badge">🔗 ${actionsCount}</span>` : '';
                 
                 item.innerHTML = `
-                    <span class="command-text">${command}</span>
+                    <span class="command-text">${command.text}${actionsBadge}</span>
                     <div class="command-actions">
-                        <button class="edit-btn" onclick="editCommand('${command}')">✏️</button>
-                        <button onclick="deleteCommand('${command}')">🗑️</button>
+                        <button onclick="openActionModal('${command.text}')" title="Действия">🔗</button>
+                        <button class="edit-btn" onclick="editCommand('${command.text}')" title="Редактировать">✏️</button>
+                        <button onclick="deleteCommand('${command.text}')" title="Удалить">🗑️</button>
                     </div>
                 `;
                 
@@ -350,7 +512,6 @@
                 toggleBtn.textContent = '🛑 Стоп';
                 toggleBtn.classList.add('active');
                 isRecognizing = true;
-                currentSession = '';
             };
             
             recognition.onend = () => {
@@ -372,23 +533,22 @@
             
             recognition.onresult = (event) => {
                 let interimTranscript = '';
-                let hasNewFinal = false;
                 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript.toLowerCase();
                     
                     if (event.results[i].isFinal) {
-                        hasNewFinal = true;
                         finalTranscript += ' ' + transcript;
                         currentSession = '';
                         
-                        // Проверяем наличие команд в распознанном тексте
                         commands.forEach(command => {
-                            if (transcript.includes(command)) {
+                            if (transcript.includes(command.text)) {
                                 const output1 = document.getElementById('output1');
                                 const timestamp = new Date().toLocaleTimeString();
-                                output1.value += `[${timestamp}] Распознана команда: ${command}\n`;
+                                output1.value += `[${timestamp}] Распознана команда: ${command.text}\n`;
                                 output1.scrollTop = output1.scrollHeight;
+                                
+                                executeActions(command.text);
                             }
                         });
                     } else {
@@ -445,6 +605,14 @@
         function updateStatus(message) {
             document.getElementById('status1').textContent = message;
             document.getElementById('status2').textContent = message;
+        }
+
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('actionModal');
+            if (event.target === modal) {
+                closeActionModal();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
