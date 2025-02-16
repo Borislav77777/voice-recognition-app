@@ -2,53 +2,95 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Распознавание речи</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 30px auto;
-            padding: 20px;
-            background: #f5f7fa;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .container {
-            background: white;
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 90vh;
+            width: 100%;
+        }
+
+        .speech-container {
+            flex: 1;
+            background-color: white;
             padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         h1 {
             color: #2c3e50;
             text-align: center;
+            font-size: 1.5em;
             margin-bottom: 20px;
+            font-weight: 700;
         }
 
         textarea {
             width: 100%;
             height: 200px;
-            padding: 15px;
+            margin: 20px 0;
+            padding: 20px;
             border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border-radius: 15px;
             font-size: 16px;
             resize: vertical;
-            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.1);
         }
 
         .buttons {
             display: flex;
-            justify-content: center;
             gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
         }
 
         button {
             padding: 12px 25px;
             font-size: 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            min-width: 120px;
+        }
+
+        button:active {
+            transform: scale(0.95);
         }
 
         .toggle {
@@ -69,148 +111,119 @@
             color: white;
         }
 
+        .clear:hover {
+            background-color: #7f8c8d;
+        }
+
         .status {
             text-align: center;
-            margin-top: 15px;
+            margin-top: 10px;
             color: #7f8c8d;
+            min-height: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .speech-container {
+                height: auto;
+            }
+
+            textarea {
+                height: 150px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Распознавание речи</h1>
-        <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
-        <div class="buttons">
-            <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
-            <button class="clear" onclick="clearText()">🗑️ Очистить</button>
+    <div class="main-container">
+        <div class="speech-container">
+            <h1>Распознавание речи</h1>
+            <textarea id="output" placeholder="Здесь появится распознанный текст..."></textarea>
+            <div class="buttons">
+                <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
+                <button class="clear" onclick="clearText()">🗑️ Очистить</button>
+            </div>
+            <div class="status" id="status"></div>
         </div>
-        <div class="status" id="status"></div>
     </div>
 
     <script>
         let recognition = null;
         let isRecognizing = false;
 
-        // Словарь для знаков препинания
-        const DICTIONARY = {
-            точка: '.',
-            запятая: ',',
-            вопрос: '?',
-            восклицание: '!',
-            двоеточие: ':',
-            тире: '-',
-            абзац: '\n'
-        };
-
-        // Функция форматирования текста
-        function formatText(text) {
-            return text
-                .split(' ')
-                .map(word => {
-                    word = word.trim();
-                    return DICTIONARY[word.toLowerCase()] || word;
-                })
-                .join(' ')
-                .replace(/\s+([.,:!?-])/g, '$1')
-                .replace(/\s+/g, ' ');
-        }
-
-        // Инициализация распознавания речи
-function initRecognition() {
-    if (!('webkitSpeechRecognition' in window)) {
-        alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
-        return;
-    }
-
-    recognition = new webkitSpeechRecognition();
-    recognition.continuous = true; // Включаем непрерывное распознавание
-    recognition.interimResults = true; // Включаем промежуточные результаты
-    recognition.maxAlternatives = 1;
-    recognition.lang = 'ru-RU';
-    
-    recognition.onstart = () => {
-        updateStatus('Говорите...');
-        const toggleBtn = document.querySelector('.toggle');
-        toggleBtn.textContent = '🛑 Стоп';
-        toggleBtn.classList.add('active');
-        isRecognizing = true;
-    };
-    
-    recognition.onend = () => {
-        if (isRecognizing) {
-            recognition.start();
-        } else {
-            updateStatus('Распознавание остановлено');
-            const toggleBtn = document.querySelector('.toggle');
-            toggleBtn.textContent = '🎤 Старт';
-            toggleBtn.classList.remove('active');
-        }
-    };
-    
-    recognition.onerror = (event) => {
-        console.error('Recognition error:', event.error);
-        updateStatus('Ошибка: ' + event.error);
-    };
-    
-    recognition.onresult = (event) => {
-        const output = document.getElementById('output');
-        let finalTranscript = '';
-        
-        // Обрабатываем все результаты
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                finalTranscript += transcript + ' ';
+        function initRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
+                return;
             }
-        }
-        
-        // Обновляем текст только если есть финальный результат
-        if (finalTranscript) {
-            output.value = output.value + finalTranscript;
-            output.scrollTop = output.scrollHeight;
-        }
-    };
 
-    return recognition;
-}
-function toggleRecognition() {
-    if (!recognition) {
-        initRecognition();
-    }
-    
-    if (!recognition) return;
-    
-    if (!isRecognizing) {
-        try {
-            recognition.start();
-        } catch (e) {
-            console.error('Start error:', e);
-            updateStatus('Ошибка запуска');
-        }
-    } else {
-        try {
-            isRecognizing = false;
-            recognition.stop();
-        } catch (e) {
-            console.error('Stop error:', e);
-            updateStatus('Ошибка остановки');
-        }
-    }
-}
-        // Проверка доступа к микрофону
-        async function checkMicrophone() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(track => track.stop());
-                return true;
-            } catch (error) {
-                console.error('Microphone error:', error);
-                updateStatus('Нет доступа к микрофону');
-                return false;
-            }
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.lang = 'ru-RU';
+            
+            let resultReceived = false;
+            
+            recognition.onstart = () => {
+                updateStatus('Говорите...');
+                const toggleBtn = document.querySelector('.toggle');
+                toggleBtn.textContent = '🛑 Стоп';
+                toggleBtn.classList.add('active');
+                isRecognizing = true;
+                resultReceived = false;
+            };
+            
+            recognition.onend = () => {
+                if (isRecognizing && !resultReceived) {
+                    recognition.start();
+                } else {
+                    updateStatus('Распознавание остановлено');
+                    const toggleBtn = document.querySelector('.toggle');
+                    toggleBtn.textContent = '🎤 Старт';
+                    toggleBtn.classList.remove('active');
+                    isRecognizing = false;
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                console.error('Recognition error:', event.error);
+                updateStatus('Ошибка: ' + event.error);
+                resultReceived = false;
+            };
+            
+            recognition.onresult = (event) => {
+                if (resultReceived) return;
+                resultReceived = true;
+                
+                const output = document.getElementById('output');
+                const transcript = event.results[0][0].transcript;
+                
+                if (output.value) {
+                    output.value += ' ' + transcript;
+                } else {
+                    output.value = transcript;
+                }
+                
+                output.scrollTop = output.scrollHeight;
+                
+                recognition.stop();
+                
+                setTimeout(() => {
+                    if (isRecognizing) {
+                        resultReceived = false;
+                        recognition.start();
+                    }
+                }, 250);
+            };
+
+            return recognition;
         }
 
-        // Переключение распознавания
         function toggleRecognition() {
             if (!recognition) {
                 initRecognition();
@@ -219,16 +232,12 @@ function toggleRecognition() {
             if (!recognition) return;
             
             if (!isRecognizing) {
-                checkMicrophone().then(hasAccess => {
-                    if (hasAccess) {
-                        try {
-                            recognition.start();
-                        } catch (e) {
-                            console.error('Start error:', e);
-                            updateStatus('Ошибка запуска');
-                        }
-                    }
-                });
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Start error:', e);
+                    updateStatus('Ошибка запуска');
+                }
             } else {
                 try {
                     isRecognizing = false;
@@ -240,23 +249,17 @@ function toggleRecognition() {
             }
         }
 
-        // Очистка текста
         function clearText() {
             document.getElementById('output').value = '';
             updateStatus('');
         }
 
-        // Обновление статуса
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
         }
 
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', async () => {
-            const hasAccess = await checkMicrophone();
-            if (hasAccess) {
-                initRecognition();
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            initRecognition();
         });
     </script>
 </body>
