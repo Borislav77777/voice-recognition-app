@@ -642,8 +642,203 @@
             updateCommandsList();
         }
 
-        // ... (остальные функции из предыдущей версии: initRecognition, toggleRecognition, 
-        // clearBoth, updateStatus, работа с действиями и т.д.)
+       function initRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
+                return;
+            }
+
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'ru-RU';
+            
+            recognition.onstart = () => {
+                updateStatus('Говорите...');
+                const toggleBtn = document.querySelector('.toggle');
+                toggleBtn.textContent = '🛑 Стоп';
+                toggleBtn.classList.add('active');
+                isRecognizing = true;
+            };
+            
+            recognition.onend = () => {
+                if (isRecognizing) {
+                    recognition.start();
+                } else {
+                    updateStatus('Распознавание остановлено');
+                    const toggleBtn = document.querySelector('.toggle');
+                    toggleBtn.textContent = '🎤 Старт';
+                    toggleBtn.classList.remove('active');
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                console.error('Recognition error:', event.error);
+                updateStatus('Ошибка: ' + event.error);
+            };
+            
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript.toLowerCase();
+                    
+                    if (event.results[i].isFinal) {
+                        finalTranscript += ' ' + transcript;
+                        currentSession = '';
+                        
+                        // Проверяем все команды, включая вложенные
+                        function checkCommands(nodes) {
+                            nodes.forEach(node => {
+                                if (node.type === 'command' && transcript.includes(node.text)) {
+                                    const output1 = document.getElementById('output1');
+                                    const timestamp = new Date().toLocaleTimeString();
+                                    output1.value += `[${timestamp}] Распознана команда: ${node.text}\n`;
+                                    output1.scrollTop = output1.scrollHeight;
+                                    
+                                    executeActions(node.id);
+                                }
+                                if (node.type === 'group' && node.children.length > 0) {
+                                    checkCommands(node.children);
+                                }
+                            });
+                        }
+                        
+                        checkCommands(commandsTree);
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                currentSession = interimTranscript;
+                document.getElementById('output2').value = (finalTranscript + ' ' + currentSession).trim();
+                
+                const output2 = document.getElementById('output2');
+                output2.scrollTop = output2.scrollHeight;
+            };
+
+            return recognition;
+        }
+
+        function toggleRecognition() {
+            if (!recognition) {
+                initRecognition();
+            }
+            
+            if (!recognition) return;
+            
+            if (!isRecognizing) {
+                try {
+                    finalTranscript = '';
+                    currentSession = '';
+                    document.getElementById('output2').value = '';
+                    recognition.start();
+                } catch (e) {
+                    console.error('Start error:', e);
+                    updateStatus('Ошибка запуска');
+                }
+            } else {
+                try {
+                    isRecognizing = false;
+                    recognition.stop();
+                } catch (e) {
+                    console.error('Stop error:', e);
+                    updateStatus('Ошибка остановки');
+                }
+            }
+        }
+
+        function clearBoth() {
+            finalTranscript = '';
+            currentSession = '';
+            document.getElementById('output1').value = '';
+            document.getElementById('output2').value = '';
+            updateStatus('');
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status1').textContent = message;
+            document.getElementById('status2').textContent = message;
+        }
+
+        // Функции для работы с действиями
+        function openActionModal(commandId) {
+            const command = findNodeById(commandsTree, commandId);
+            if (command) {
+                const modal = document.getElementById('actionModal');
+                const commandSpan = document.getElementById('currentCommandText');
+                commandSpan.textContent = command.text;
+                modal.dataset.commandId = commandId;
+                modal.style.display = 'block';
+                updateActionsList(commandId);
+            }
+        }
+
+        function closeActionModal() {
+            document.getElementById('actionModal').style.display = 'none';
+        }
+
+        function addAction(type) {
+            const modal = document.getElementById('actionModal');
+            const commandId = modal.dataset.commandId;
+            const command = findNodeById(commandsTree, commandId);
+            
+            if (command) {
+                command.actions.push({
+                    type: type,
+                    path: '',
+                    id: Date.now()
+                });
+                updateActionsList(commandId);
+            }
+        }
+
+        function updateActionsList(commandId) {
+            const command = findNodeById(commandsTree, commandId);
+            const actionsList = document.getElementById('actionsList');
+            
+            if (!command) return;
+            
+            actionsList.innerHTML = '';
+            command.actions.forEach(action => {
+                const actionItem = document.createElement('div');
+                actionItem.className = 'action-item';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = action.path;
+                input.placeholder = 'Введите URL (например: https://www.google.com)';
+                
+                input.onchange = (e) => {
+                    action.path = e.target.value;
+                };
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️';
+                deleteBtn.onclick = () => {
+                    command.actions = command.actions.filter(a => a.id !== action.id);
+                    updateActionsList(commandId);
+                };
+                
+                actionItem.appendChild(document.createTextNode('🌐 '));
+                actionItem.appendChild(input);
+                actionItem.appendChild(deleteBtn);
+                actionsList.appendChild(actionItem);
+            });
+        }
+
+        function executeActions(commandId) {
+            const command = findNodeById(commandsTree, commandId);
+            if (command && command.actions.length > 0) {
+                command.actions.forEach(action => {
+                    if (action.path) {
+                        if (action.type === 'url') {
+                            window.open(action.path, '_blank');
+                        }
+                    }
+                });
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             initRecognition();
