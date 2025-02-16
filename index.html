@@ -116,20 +116,17 @@
         }
 
         // Инициализация распознавания речи
-   function initRecognition() {
+function initRecognition() {
     if (!('webkitSpeechRecognition' in window)) {
         alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
         return;
     }
 
     recognition = new webkitSpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true; // Включаем непрерывное распознавание
+    recognition.interimResults = true; // Включаем промежуточные результаты
     recognition.maxAlternatives = 1;
     recognition.lang = 'ru-RU';
-    
-    let lastResult = ''; // Храним последний результат
-    let lastTimestamp = 0; // Храним время последнего результата
     
     recognition.onstart = () => {
         updateStatus('Говорите...');
@@ -141,7 +138,7 @@
     
     recognition.onend = () => {
         if (isRecognizing) {
-            setTimeout(() => recognition.start(), 300);
+            recognition.start();
         } else {
             updateStatus('Распознавание остановлено');
             const toggleBtn = document.querySelector('.toggle');
@@ -156,29 +153,22 @@
     };
     
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        const currentTime = Date.now();
-        
-        // Проверяем, не является ли это дубликатом
-        if (transcript === lastResult && currentTime - lastTimestamp < 1000) {
-            return;
-        }
-        
         const output = document.getElementById('output');
+        let finalTranscript = '';
         
-        // Добавляем новый текст
-        if (output.value) {
-            output.value += ' ' + transcript;
-        } else {
-            output.value = transcript;
+        // Обрабатываем все результаты
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript + ' ';
+            }
         }
         
-        // Обновляем последний результат и время
-        lastResult = transcript;
-        lastTimestamp = currentTime;
-        
-        output.scrollTop = output.scrollHeight;
-        recognition.stop();
+        // Обновляем текст только если есть финальный результат
+        if (finalTranscript) {
+            output.value = output.value + finalTranscript;
+            output.scrollTop = output.scrollHeight;
+        }
     };
 
     return recognition;
