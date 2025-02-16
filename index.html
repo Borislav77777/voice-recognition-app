@@ -116,7 +116,7 @@
         }
 
         // Инициализация распознавания речи
-        function initRecognition() {
+   function initRecognition() {
     if (!('webkitSpeechRecognition' in window)) {
         alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
         return;
@@ -124,11 +124,12 @@
 
     recognition = new webkitSpeechRecognition();
     recognition.continuous = false;
-    recognition.interimResults = false; // Отключаем промежуточные результаты
+    recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.lang = 'ru-RU';
     
-    let resultReceived = false; // Флаг для защиты от множественных результатов
+    let lastResult = ''; // Храним последний результат
+    let lastTimestamp = 0; // Храним время последнего результата
     
     recognition.onstart = () => {
         updateStatus('Говорите...');
@@ -136,33 +137,34 @@
         toggleBtn.textContent = '🛑 Стоп';
         toggleBtn.classList.add('active');
         isRecognizing = true;
-        resultReceived = false; // Сбрасываем флаг при старте
     };
     
     recognition.onend = () => {
-        if (isRecognizing && !resultReceived) {
-            recognition.start();
+        if (isRecognizing) {
+            setTimeout(() => recognition.start(), 300);
         } else {
             updateStatus('Распознавание остановлено');
             const toggleBtn = document.querySelector('.toggle');
             toggleBtn.textContent = '🎤 Старт';
             toggleBtn.classList.remove('active');
-            isRecognizing = false;
         }
     };
     
     recognition.onerror = (event) => {
         console.error('Recognition error:', event.error);
         updateStatus('Ошибка: ' + event.error);
-        resultReceived = false;
     };
     
     recognition.onresult = (event) => {
-        if (resultReceived) return; // Пропускаем повторные результаты
-        resultReceived = true; // Устанавливаем флаг
+        const transcript = event.results[0][0].transcript;
+        const currentTime = Date.now();
+        
+        // Проверяем, не является ли это дубликатом
+        if (transcript === lastResult && currentTime - lastTimestamp < 1000) {
+            return;
+        }
         
         const output = document.getElementById('output');
-        const transcript = event.results[0][0].transcript;
         
         // Добавляем новый текст
         if (output.value) {
@@ -171,18 +173,12 @@
             output.value = transcript;
         }
         
+        // Обновляем последний результат и время
+        lastResult = transcript;
+        lastTimestamp = currentTime;
+        
         output.scrollTop = output.scrollHeight;
-        
-        // Останавливаем распознавание после получения результата
         recognition.stop();
-        
-        // Перезапускаем через небольшую задержку
-        setTimeout(() => {
-            if (isRecognizing) {
-                resultReceived = false;
-                recognition.start();
-            }
-        }, 250);
     };
 
     return recognition;
