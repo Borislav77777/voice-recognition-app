@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сравнение распознавателей речи</title>
+    <title>Распознавание речи и команд</title>
     <style>
         * {
             margin: 0;
@@ -56,6 +56,72 @@
             display: flex;
             justify-content: center;
             gap: 15px;
+        }
+
+        .commands-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .commands-panel input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .commands-panel button {
+            white-space: nowrap;
+            padding: 10px 15px;
+        }
+
+        .commands-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .command-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 5px;
+        }
+
+        .command-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .command-text {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .command-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .command-actions button {
+            padding: 5px 10px;
+            min-width: auto;
+            font-size: 12px;
+        }
+
+        .edit-input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #3498db;
+            border-radius: 4px;
+            margin-right: 10px;
         }
 
         h1 {
@@ -162,13 +228,21 @@
         
         <div class="recognizers-container">
             <div class="speech-container">
-                <h1>Распознаватель 1 (пофразовый)</h1>
-                <textarea id="output1" placeholder="Здесь появится распознанный текст..." readonly></textarea>
+                <h1>Анализатор команд</h1>
+                <div class="commands-panel">
+                    <input type="text" id="newCommand" placeholder="Введите новую команду..."
+                           onkeypress="if(event.key === 'Enter') addCommand()">
+                    <button onclick="addCommand()">➕ Добавить команду</button>
+                </div>
+                <div class="commands-list" id="commandsList">
+                    <!-- Команды будут добавляться сюда -->
+                </div>
+                <textarea id="output1" placeholder="Здесь появятся распознанные команды..." readonly></textarea>
                 <div class="status" id="status1"></div>
             </div>
 
             <div class="speech-container">
-                <h1>Распознаватель 2 (синхронный)</h1>
+                <h1>Распознаватель (синхронный)</h1>
                 <textarea id="output2" placeholder="Здесь появится распознанный текст..." readonly></textarea>
                 <div class="status" id="status2"></div>
             </div>
@@ -180,6 +254,83 @@
         let isRecognizing = false;
         let finalTranscript = '';
         let currentSession = '';
+        let commands = new Set();
+        let isEditing = false;
+
+        function addCommand() {
+            const input = document.getElementById('newCommand');
+            const command = input.value.trim().toLowerCase();
+            
+            if (command && !commands.has(command)) {
+                commands.add(command);
+                updateCommandsList();
+                input.value = '';
+            }
+        }
+
+        function deleteCommand(command) {
+            commands.delete(command);
+            updateCommandsList();
+        }
+
+        function editCommand(oldCommand) {
+            if (isEditing) return;
+            
+            const commandItem = document.querySelector(`[data-command="${oldCommand}"]`);
+            const commandText = commandItem.querySelector('.command-text');
+            const oldText = commandText.textContent;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = oldText;
+            input.className = 'edit-input';
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '💾';
+            saveBtn.className = 'save-btn';
+            saveBtn.onclick = () => {
+                const newCommand = input.value.trim().toLowerCase();
+                if (newCommand && newCommand !== oldCommand) {
+                    commands.delete(oldCommand);
+                    commands.add(newCommand);
+                }
+                updateCommandsList();
+                isEditing = false;
+            };
+            
+            commandText.replaceWith(input);
+            commandItem.querySelector('.edit-btn').replaceWith(saveBtn);
+            input.focus();
+            isEditing = true;
+
+            // Добавляем обработчик клавиши Enter
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveBtn.click();
+                }
+            });
+        }
+
+        function updateCommandsList() {
+            const list = document.getElementById('commandsList');
+            list.innerHTML = '';
+            
+            commands.forEach(command => {
+                const item = document.createElement('div');
+                item.className = 'command-item';
+                item.setAttribute('data-command', command);
+                
+                item.innerHTML = `
+                    <span class="command-text">${command}</span>
+                    <div class="command-actions">
+                        <button class="edit-btn" onclick="editCommand('${command}')">✏️</button>
+                        <button onclick="deleteCommand('${command}')">🗑️</button>
+                    </div>
+                `;
+                
+                list.appendChild(item);
+            });
+        }
 
         function initRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
@@ -211,10 +362,6 @@
                     const toggleBtn = document.querySelector('.toggle');
                     toggleBtn.textContent = '🎤 Старт';
                     toggleBtn.classList.remove('active');
-                    if (currentSession.trim()) {
-                        finalTranscript += ' ' + currentSession.trim();
-                        document.getElementById('output1').value = finalTranscript;
-                    }
                 }
             };
             
@@ -228,29 +375,32 @@
                 let hasNewFinal = false;
                 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
+                    const transcript = event.results[i][0].transcript.toLowerCase();
                     
                     if (event.results[i].isFinal) {
                         hasNewFinal = true;
                         finalTranscript += ' ' + transcript;
                         currentSession = '';
+                        
+                        // Проверяем наличие команд в распознанном тексте
+                        commands.forEach(command => {
+                            if (transcript.includes(command)) {
+                                const output1 = document.getElementById('output1');
+                                const timestamp = new Date().toLocaleTimeString();
+                                output1.value += `[${timestamp}] Распознана команда: ${command}\n`;
+                                output1.scrollTop = output1.scrollHeight;
+                            }
+                        });
                     } else {
                         interimTranscript += transcript;
                     }
                 }
                 
                 currentSession = interimTranscript;
-                
-                if (hasNewFinal) {
-                    document.getElementById('output1').value = finalTranscript.trim();
-                }
-                
                 document.getElementById('output2').value = (finalTranscript + ' ' + currentSession).trim();
                 
-                const outputs = document.querySelectorAll('textarea');
-                outputs.forEach(output => {
-                    output.scrollTop = output.scrollHeight;
-                });
+                const output2 = document.getElementById('output2');
+                output2.scrollTop = output2.scrollHeight;
             };
 
             return recognition;
@@ -267,7 +417,6 @@
                 try {
                     finalTranscript = '';
                     currentSession = '';
-                    document.getElementById('output1').value = '';
                     document.getElementById('output2').value = '';
                     recognition.start();
                 } catch (e) {
