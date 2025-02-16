@@ -175,10 +175,11 @@
         </div>
     </div>
 
-
     <script>
         let recognition = null;
         let isRecognizing = false;
+        let finalTranscript = '';
+        let interimTranscript = '';
 
         function initRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
@@ -189,10 +190,10 @@
             recognition = new webkitSpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
             recognition.lang = 'ru-RU';
             
             recognition.onstart = () => {
+                console.log('Recognition started');
                 updateStatus('Говорите...');
                 const toggleBtn = document.querySelector('.toggle');
                 toggleBtn.textContent = '🛑 Стоп';
@@ -201,6 +202,7 @@
             };
             
             recognition.onend = () => {
+                console.log('Recognition ended');
                 if (isRecognizing) {
                     recognition.start();
                 } else {
@@ -216,35 +218,30 @@
                 updateStatus('Ошибка: ' + event.error);
             };
             
-            let finalTranscript1 = ''; // Для первого распознавателя
-            let interimTranscript = ''; // Для второго распознавателя
-            
             recognition.onresult = (event) => {
-                interimTranscript = ''; // Очищаем промежуточный результат
+                console.log('Got result:', event.results);
+                interimTranscript = '';
                 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
                     
                     if (event.results[i].isFinal) {
-                        // Для первого распознавателя (только финальные результаты)
-                        if (finalTranscript1) {
-                            finalTranscript1 += ' ' + transcript;
-                        } else {
-                            finalTranscript1 = transcript;
-                        }
-                        document.getElementById('output1').value = finalTranscript1;
+                        finalTranscript += transcript + ' ';
+                        // Обновляем первый распознаватель (пофразовый)
+                        document.getElementById('output1').value = finalTranscript;
+                    } else {
+                        interimTranscript += transcript;
                     }
-                    
-                    // Для второго распознавателя (все результаты)
-                    interimTranscript += transcript + ' ';
                 }
                 
-                // Обновляем второй распознаватель
-                document.getElementById('output2').value = interimTranscript;
+                // Обновляем второй распознаватель (синхронный)
+                document.getElementById('output2').value = finalTranscript + interimTranscript;
                 
-                // Прокручиваем оба текстовых поля
-                document.getElementById('output1').scrollTop = document.getElementById('output1').scrollHeight;
-                document.getElementById('output2').scrollTop = document.getElementById('output2').scrollHeight;
+                // Прокручиваем текстовые поля
+                const outputs = document.querySelectorAll('textarea');
+                outputs.forEach(output => {
+                    output.scrollTop = output.scrollHeight;
+                });
             };
 
             return recognition;
@@ -259,6 +256,8 @@
             
             if (!isRecognizing) {
                 try {
+                    finalTranscript = ''; // Очищаем при новом старте
+                    interimTranscript = '';
                     recognition.start();
                 } catch (e) {
                     console.error('Start error:', e);
@@ -276,6 +275,8 @@
         }
 
         function clearBoth() {
+            finalTranscript = '';
+            interimTranscript = '';
             document.getElementById('output1').value = '';
             document.getElementById('output2').value = '';
             updateStatus('');
@@ -286,6 +287,7 @@
             document.getElementById('status2').textContent = message;
         }
 
+        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initRecognition();
         });
