@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Распознавание речи и команд</title>
+    <title>Иерархический распознаватель команд</title>
     <style>
         * {
             margin: 0;
@@ -15,7 +15,7 @@
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -24,66 +24,74 @@
         .main-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             max-width: 1600px;
             width: 100%;
             margin: 0 auto;
-            height: 90vh;
+            height: 95vh;
+        }
+
+        .control-panel {
+            background-color: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .recognizers-container {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             flex: 1;
+            min-height: 0; /* Важно для скролла на мобильных */
         }
 
         .speech-container {
             flex: 1;
             background-color: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            min-width: 300px;
-        }
-
-        .control-panel {
-            background-color: white;
-            padding: 20px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: center;
-            gap: 15px;
+            min-width: 280px;
+            overflow: hidden; /* Важно для скролла */
         }
 
         .commands-panel {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
 
-        .commands-panel input {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .commands-panel button {
-            white-space: nowrap;
-            padding: 10px 15px;
+        .commands-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
         }
 
         .commands-list {
-            max-height: 150px;
+            flex: 1;
             overflow-y: auto;
             margin-bottom: 15px;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             padding: 10px;
+            min-height: 100px;
+        }
+
+        .command-group {
+            margin: 5px 0;
+            border-left: 2px solid #3498db;
+            padding-left: 10px;
+        }
+
+        .command-group.collapsed .group-content {
+            display: none;
         }
 
         .command-item {
@@ -93,21 +101,58 @@
             padding: 8px;
             background: #f8f9fa;
             border-radius: 6px;
-            margin-bottom: 5px;
+            margin: 5px 0;
+            touch-action: none; /* Важно для drag&drop на тач-устройствах */
+            user-select: none;
         }
 
-        .command-item:last-child {
-            margin-bottom: 0;
+        .command-item.dragging {
+            opacity: 0.5;
+            background: #e3f2fd;
         }
 
-        .command-text {
+        .command-item.drag-over {
+            border: 2px dashed #3498db;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            background: #f1f1f1;
+        }
+
+        .group-header:hover {
+            background: #e9e9e9;
+        }
+
+        .group-toggle {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+        }
+                .command-text {
             flex: 1;
             margin-right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .command-actions {
             display: flex;
             gap: 5px;
+            flex-wrap: wrap;
         }
 
         .command-actions button {
@@ -122,6 +167,7 @@
             border: 1px solid #3498db;
             border-radius: 4px;
             margin-right: 10px;
+            font-size: 14px;
         }
 
         .modal {
@@ -133,14 +179,15 @@
             height: 100%;
             background-color: rgba(0,0,0,0.5);
             z-index: 1000;
+            overflow-y: auto;
         }
 
         .modal-content {
             background-color: white;
-            margin: 10% auto;
+            margin: 20px auto;
             padding: 20px;
             border-radius: 15px;
-            width: 80%;
+            width: 90%;
             max-width: 600px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
@@ -149,10 +196,7 @@
             display: flex;
             gap: 10px;
             margin: 20px 0;
-        }
-
-        .action-list {
-            margin: 15px 0;
+            flex-wrap: wrap;
         }
 
         .action-item {
@@ -170,6 +214,7 @@
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
+            min-width: 0; /* Важно для мобильных */
         }
 
         .command-badge {
@@ -187,12 +232,19 @@
             margin-top: 20px;
             text-align: right;
         }
-                h1 {
+
+        h1 {
             color: #2c3e50;
             text-align: center;
             font-size: 1.5em;
             margin-bottom: 20px;
             font-weight: 700;
+        }
+
+        h2 {
+            color: #2c3e50;
+            font-size: 1.2em;
+            margin-bottom: 15px;
         }
 
         textarea {
@@ -208,6 +260,7 @@
             font-family: Arial, sans-serif;
             line-height: 1.5;
             flex-grow: 1;
+            min-height: 100px;
         }
 
         textarea:focus {
@@ -217,33 +270,34 @@
         }
 
         button {
-            padding: 12px 25px;
-            font-size: 16px;
+            padding: 8px 15px;
+            font-size: 14px;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 500;
-            min-width: 120px;
+            min-width: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 5px;
+            background-color: #3498db;
+            color: white;
         }
 
         button:active {
             transform: scale(0.95);
         }
 
-        .toggle {
-            background-color: #3498db;
-            color: white;
-            font-size: 18px;
-            padding: 15px 30px;
+        button:hover {
+            background-color: #2980b9;
         }
 
-        .toggle:hover {
-            background-color: #2980b9;
+        .toggle {
+            background-color: #3498db;
+            font-size: 16px;
+            padding: 12px 25px;
         }
 
         .toggle.active {
@@ -252,11 +306,18 @@
 
         .clear {
             background-color: #95a5a6;
-            color: white;
         }
 
         .clear:hover {
             background-color: #7f8c8d;
+        }
+
+        .add-group {
+            background-color: #2ecc71;
+        }
+
+        .add-group:hover {
+            background-color: #27ae60;
         }
 
         .status {
@@ -265,19 +326,41 @@
             color: #7f8c8d;
             min-height: 20px;
         }
-
-        @media (max-width: 900px) {
+                @media (max-width: 900px) {
             .recognizers-container {
                 flex-direction: column;
             }
 
             .speech-container {
-                height: auto;
                 min-height: 400px;
             }
 
             textarea {
                 height: 150px;
+            }
+
+            .modal-content {
+                margin: 10px;
+                width: calc(100% - 20px);
+                padding: 15px;
+            }
+
+            .commands-panel {
+                flex-direction: column;
+            }
+
+            .commands-panel input {
+                width: 100%;
+            }
+
+            .command-item {
+                flex-wrap: wrap;
+            }
+
+            .command-actions {
+                width: 100%;
+                margin-top: 5px;
+                justify-content: flex-end;
             }
         }
     </style>
@@ -295,7 +378,10 @@
                 <div class="commands-panel">
                     <input type="text" id="newCommand" placeholder="Введите новую команду..."
                            onkeypress="if(event.key === 'Enter') addCommand()">
-                    <button onclick="addCommand()">➕ Добавить команду</button>
+                    <div class="commands-actions">
+                        <button onclick="addCommand()">➕ Добавить команду</button>
+                        <button class="add-group" onclick="addGroup()">📁 Новая группа</button>
+                    </div>
                 </div>
                 <div class="commands-list" id="commandsList">
                     <!-- Команды будут добавляться сюда -->
@@ -317,7 +403,6 @@
         <div class="modal-content">
             <h2>Действия для команды: <span id="currentCommandText"></span></h2>
             <div class="action-types">
-                <button onclick="addAction('folder')">📁 Открыть папку</button>
                 <button onclick="addAction('url')">🌐 Открыть ссылку</button>
             </div>
             <div id="actionsList"></div>
@@ -326,145 +411,258 @@
             </div>
         </div>
     </div>
-        <script>
+
+    <script>
         let recognition = null;
         let isRecognizing = false;
         let finalTranscript = '';
         let currentSession = '';
-        let commands = new Map();
         let isEditing = false;
+        let draggedItem = null;
 
-        function addCommand() {
+        // Структура для хранения команд и групп
+        class CommandNode {
+            constructor(text, type = 'command', parentId = null) {
+                this.id = Date.now() + Math.random().toString(36).substr(2, 9);
+                this.text = text;
+                this.type = type; // 'command' или 'group'
+                this.parentId = parentId;
+                this.actions = [];
+                this.children = []; // для групп
+                this.isCollapsed = false; // для групп
+            }
+        }
+
+        let commandsTree = [];
+
+        function findNodeById(nodes, id) {
+            for (let node of nodes) {
+                if (node.id === id) return node;
+                if (node.type === 'group') {
+                    const found = findNodeById(node.children, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function findParentNode(nodes, childId) {
+            for (let node of nodes) {
+                if (node.type === 'group') {
+                    if (node.children.some(child => child.id === childId)) {
+                        return node;
+                    }
+                    const found = findParentNode(node.children, childId);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+                function addCommand(parentId = null) {
             const input = document.getElementById('newCommand');
             const commandText = input.value.trim().toLowerCase();
             
-            if (commandText && !commands.has(commandText)) {
-                commands.set(commandText, {
-                    text: commandText,
-                    actions: []
-                });
+            if (commandText) {
+                const newCommand = new CommandNode(commandText, 'command', parentId);
+                if (parentId) {
+                    const parent = findNodeById(commandsTree, parentId);
+                    if (parent) {
+                        parent.children.push(newCommand);
+                    }
+                } else {
+                    commandsTree.push(newCommand);
+                }
                 updateCommandsList();
                 input.value = '';
             }
         }
 
-        function openActionModal(commandText) {
-            const modal = document.getElementById('actionModal');
-            const commandSpan = document.getElementById('currentCommandText');
-            commandSpan.textContent = commandText;
-            modal.style.display = 'block';
-            updateActionsList(commandText);
-        }
-
-        function closeActionModal() {
-            document.getElementById('actionModal').style.display = 'none';
-        }
-
-        function addAction(type) {
-            const commandText = document.getElementById('currentCommandText').textContent;
-            const command = commands.get(commandText);
-            
-            if (command) {
-                const action = {
-                    type: type,
-                    path: '',
-                    id: Date.now()
-                };
-
-                if (type === 'folder') {
-                    alert('Для папок используйте полный путь, например:\nC:/Users/Username/Documents\nили\nC:\\Users\\Username\\Documents');
-                }
-                
-                command.actions.push(action);
-                updateActionsList(commandText);
-            }
-        }
-
-        function executeActions(commandText) {
-            const command = commands.get(commandText);
-            if (command && command.actions.length > 0) {
-                command.actions.forEach(action => {
-                    if (action.path) {
-                        if (action.type === 'url') {
-                            window.open(action.path, '_blank');
-                        } else if (action.type === 'folder') {
-                            try {
-                                // Пробуем несколько вариантов открытия папки
-                                const cleanPath = action.path.replace(/\\/g, '/');
-                                
-                                // Вариант 1: через протокол file
-                                const link = document.createElement('a');
-                                link.href = `file:///${cleanPath}`;
-                                link.click();
-                                
-                                // Вариант 2: через explorer.exe (для Windows)
-                                window.open(`explorer "${cleanPath}"`);
-                                
-                                const output1 = document.getElementById('output1');
-                                output1.value += `[${new Date().toLocaleTimeString()}] Попытка открыть папку: ${cleanPath}\n`;
-                                output1.scrollTop = output1.scrollHeight;
-                            } catch (e) {
-                                console.error('Ошибка открытия папки:', e);
-                                const output1 = document.getElementById('output1');
-                                output1.value += `[${new Date().toLocaleTimeString()}] Ошибка открытия папки: ${action.path}\n`;
-                                output1.scrollTop = output1.scrollHeight;
-                            }
-                        }
+        function addGroup(parentId = null) {
+            const groupName = prompt('Введите название группы:');
+            if (groupName) {
+                const newGroup = new CommandNode(groupName, 'group', parentId);
+                if (parentId) {
+                    const parent = findNodeById(commandsTree, parentId);
+                    if (parent) {
+                        parent.children.push(newGroup);
                     }
-                });
+                } else {
+                    commandsTree.push(newGroup);
+                }
+                updateCommandsList();
             }
         }
 
-        function updateActionsList(commandText) {
-            const actionsList = document.getElementById('actionsList');
-            const command = commands.get(commandText);
+        function toggleGroup(groupId) {
+            const group = findNodeById(commandsTree, groupId);
+            if (group) {
+                group.isCollapsed = !group.isCollapsed;
+                updateCommandsList();
+            }
+        }
+
+        function renderCommandNode(node, level = 0) {
+            const padding = level * 20;
+            let html = '';
+
+            if (node.type === 'group') {
+                html += `
+                    <div class="command-group" data-id="${node.id}" style="margin-left: ${padding}px">
+                        <div class="group-header" onclick="toggleGroup('${node.id}')"
+                             ondragover="handleDragOver(event)" 
+                             ondrop="handleDrop(event)" 
+                             data-id="${node.id}">
+                            <button class="group-toggle">${node.isCollapsed ? '▶' : '▼'}</button>
+                            <span class="command-text">📁 ${node.text}</span>
+                            <div class="command-actions">
+                                <button onclick="event.stopPropagation(); addCommand('${node.id}')" title="Добавить команду">➕</button>
+                                <button onclick="event.stopPropagation(); addGroup('${node.id}')" title="Добавить группу">📁</button>
+                                <button onclick="event.stopPropagation(); deleteNode('${node.id}')" title="Удалить группу">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="group-content" ${node.isCollapsed ? 'style="display:none"' : ''}>
+                            ${node.children.map(child => renderCommandNode(child, level + 1)).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                const actionsCount = node.actions.length;
+                const actionsBadge = actionsCount > 0 ? 
+                    `<span class="command-badge">🔗 ${actionsCount}</span>` : '';
+
+                html += `
+                    <div class="command-item" draggable="true" 
+                         ondragstart="handleDragStart(event)" 
+                         ondragend="handleDragEnd(event)"
+                         ondragover="handleDragOver(event)"
+                         ondrop="handleDrop(event)"
+                         data-id="${node.id}"
+                         style="margin-left: ${padding}px">
+                        <span class="command-text">${node.text}${actionsBadge}</span>
+                        <div class="command-actions">
+                            <button onclick="openActionModal('${node.id}')" title="Действия">🔗</button>
+                            <button class="edit-btn" onclick="editCommand('${node.id}')" title="Редактировать">✏️</button>
+                            <button onclick="deleteNode('${node.id}')" title="Удалить">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        function updateCommandsList() {
+            const list = document.getElementById('commandsList');
+            list.innerHTML = commandsTree.map(node => renderCommandNode(node)).join('');
+        }
+
+        // Drag and Drop handlers
+        function handleDragStart(event) {
+            draggedItem = event.target;
+            event.target.classList.add('dragging');
             
-            if (!command) return;
-            
-            actionsList.innerHTML = '';
-            command.actions.forEach(action => {
-                const actionItem = document.createElement('div');
-                actionItem.className = 'action-item';
-                
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.value = action.path;
-                input.placeholder = action.type === 'folder' 
-                    ? 'Путь к папке (например: C:/Users/Documents)' 
-                    : 'URL (например: https://www.google.com)';
-                
-                input.onchange = (e) => {
-                    action.path = e.target.value;
-                };
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '🗑️';
-                deleteBtn.onclick = () => {
-                    command.actions = command.actions.filter(a => a.id !== action.id);
-                    updateActionsList(commandText);
-                };
-                
-                actionItem.appendChild(document.createTextNode(action.type === 'folder' ? '📁 ' : '🌐 '));
-                actionItem.appendChild(input);
-                actionItem.appendChild(deleteBtn);
-                actionsList.appendChild(actionItem);
+            // Для мобильных устройств
+            event.target.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target) {
+                    const dropTarget = target.closest('.command-item, .group-header');
+                    if (dropTarget) {
+                        dropTarget.classList.add('drag-over');
+                    }
+                }
             });
         }
 
-        // Остальные функции (deleteCommand, editCommand, updateCommandsList, initRecognition, 
-        // toggleRecognition, clearBoth, updateStatus) остаются без изменений
-        // из предыдущей версии кода
+        function handleDragEnd(event) {
+            event.target.classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
 
-        // Закрытие модального окна при клике вне его
-        window.onclick = function(event) {
-            const modal = document.getElementById('actionModal');
-            if (event.target === modal) {
-                closeActionModal();
+        function handleDragOver(event) {
+            event.preventDefault();
+            const target = event.target.closest('.command-item, .group-header');
+            if (target && target !== draggedItem) {
+                target.classList.add('drag-over');
             }
         }
 
+        function handleDrop(event) {
+            event.preventDefault();
+            const target = event.target.closest('.command-item, .group-header');
+            
+            if (target && draggedItem) {
+                const draggedId = draggedItem.dataset.id;
+                const targetId = target.dataset.id;
+                
+                if (draggedId !== targetId) {
+                    moveNode(draggedId, targetId);
+                }
+            }
+            
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
+
+        function moveNode(draggedId, targetId) {
+            const draggedNode = findNodeById(commandsTree, draggedId);
+            const targetNode = findNodeById(commandsTree, targetId);
+            
+            if (!draggedNode || !targetNode) return;
+            
+            // Удаляем узел из текущего места
+            const oldParent = findParentNode(commandsTree, draggedId);
+            if (oldParent) {
+                oldParent.children = oldParent.children.filter(n => n.id !== draggedId);
+            } else {
+                commandsTree = commandsTree.filter(n => n.id !== draggedId);
+            }
+            
+            // Добавляем узел в новое место
+            if (targetNode.type === 'group') {
+                targetNode.children.push(draggedNode);
+                draggedNode.parentId = targetNode.id;
+            } else {
+                const targetParent = findParentNode(commandsTree, targetId);
+                if (targetParent) {
+                    const index = targetParent.children.findIndex(n => n.id === targetId);
+                    targetParent.children.splice(index + 1, 0, draggedNode);
+                    draggedNode.parentId = targetParent.id;
+                } else {
+                    const index = commandsTree.findIndex(n => n.id === targetId);
+                    commandsTree.splice(index + 1, 0, draggedNode);
+                    draggedNode.parentId = null;
+                }
+            }
+            
+            updateCommandsList();
+        }
+
+        // ... (остальные функции из предыдущей версии: initRecognition, toggleRecognition, 
+        // clearBoth, updateStatus, работа с действиями и т.д.)
+
         document.addEventListener('DOMContentLoaded', () => {
             initRecognition();
+            
+            // Добавляем поддержку тач-событий
+            const commandsList = document.getElementById('commandsList');
+            commandsList.addEventListener('touchstart', function(e) {
+                const target = e.target.closest('.command-item');
+                if (target) {
+                    target.draggable = true;
+                }
+            });
+            
+            commandsList.addEventListener('touchend', function(e) {
+                const target = e.target.closest('.command-item');
+                if (target) {
+                    target.draggable = false;
+                }
+            });
         });
     </script>
 </body>
