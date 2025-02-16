@@ -308,6 +308,18 @@
     </div>
 
     <script>
+        // Добавьте в начало скрипта:
+async function checkMicrophone() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+    } catch (error) {
+        console.error('Microphone error:', error);
+        updateStatus('Нет доступа к микрофону');
+        return false;
+    }
+}
         // Инициализация переменных для распознавания речи
         let recognition = null;
         let isRecognizing = false;
@@ -417,23 +429,35 @@ function initRecognition() {
         }
 
         // Функция изменения модели
-        function changeModel() {
-            currentModel = document.getElementById('ai-model').value;
-            const apiKeyInput = document.querySelector('.api-key-input');
-            
-            if (['gigachat', 'yandexgpt', 'claude'].includes(currentModel)) {
-                apiKeyInput.style.display = 'block';
-            } else {
-                apiKeyInput.style.display = 'none';
+       function toggleRecognition() {
+    if (!recognition) {
+        console.log('Initializing recognition...');
+        initRecognition();
+    }
+    
+    if (!recognition) return;
+    
+    if (!isRecognizing) {
+        checkMicrophone().then(hasAccess => {
+            if (hasAccess) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Start error:', e);
+                    updateStatus('Ошибка запуска');
+                }
             }
-            
-            if (currentModel === 'gpt4all') {
-                checkGPT4AllServer();
-            }
-
-            updateApiStatus();
+        });
+    } else {
+        try {
+            isRecognizing = false;
+            recognition.stop();
+        } catch (e) {
+            console.error('Stop error:', e);
+            updateStatus('Ошибка остановки');
         }
-
+    }
+}
         // Проверка статуса API
         async function updateApiStatus() {
             const statusDot = document.querySelector('.status-dot');
@@ -767,11 +791,14 @@ function initRecognition() {
         }
 
         // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', () => {
-            initRecognition();
-            loadHistory();
-            updateApiStatus();
-        });
+       document.addEventListener('DOMContentLoaded', async () => {
+    const hasAccess = await checkMicrophone();
+    if (hasAccess) {
+        initRecognition();
+    }
+    loadHistory();
+    updateApiStatus();
+});
     </script>
 </body>
 </html>       
