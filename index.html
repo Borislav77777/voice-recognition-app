@@ -156,160 +156,122 @@
 <body>
     <div class="main-container">
         <div class="control-panel">
-            <button class="toggle" onclick="toggleBothRecognitions()">🎤 Старт</button>
+            <button class="toggle" onclick="toggleRecognition()">🎤 Старт</button>
             <button class="clear" onclick="clearBoth()">🗑️ Очистить оба</button>
         </div>
         
         <div class="recognizers-container">
             <div class="speech-container">
                 <h1>Распознаватель 1 (пофразовый)</h1>
-                <textarea id="output1" placeholder="Здесь появится распознанный текст..."></textarea>
+                <textarea id="output1" placeholder="Здесь появится распознанный текст..." readonly></textarea>
                 <div class="status" id="status1"></div>
             </div>
 
             <div class="speech-container">
                 <h1>Распознаватель 2 (синхронный)</h1>
-                <textarea id="output2" placeholder="Здесь появится распознанный текст..."></textarea>
+                <textarea id="output2" placeholder="Здесь появится распознанный текст..." readonly></textarea>
                 <div class="status" id="status2"></div>
             </div>
         </div>
     </div>
 
+
     <script>
-        let recognition1 = null;
-        let recognition2 = null;
+        <script>
+        let recognition = null;
         let isRecognizing = false;
 
-        function initRecognition1() {
+        function initRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
                 alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
                 return;
             }
 
-            recognition1 = new webkitSpeechRecognition();
-            recognition1.continuous = false;
-            recognition1.interimResults = false;
-            recognition1.maxAlternatives = 1;
-            recognition1.lang = 'ru-RU';
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+            recognition.lang = 'ru-RU';
             
-            let resultReceived = false;
-            
-            recognition1.onstart = () => {
-                updateStatus1('Говорите...');
-                resultReceived = false;
+            recognition.onstart = () => {
+                updateStatus('Говорите...');
+                const toggleBtn = document.querySelector('.toggle');
+                toggleBtn.textContent = '🛑 Стоп';
+                toggleBtn.classList.add('active');
+                isRecognizing = true;
             };
             
-            recognition1.onend = () => {
-                if (isRecognizing && !resultReceived) {
-                    recognition1.start();
-                } else {
-                    updateStatus1('Распознавание остановлено');
-                }
-            };
-            
-            recognition1.onerror = (event) => {
-                console.error('Recognition1 error:', event.error);
-                updateStatus1('Ошибка: ' + event.error);
-                resultReceived = false;
-            };
-            
-            recognition1.onresult = (event) => {
-                if (resultReceived) return;
-                resultReceived = true;
-                
-                const output = document.getElementById('output1');
-                const transcript = event.results[0][0].transcript;
-                
-                if (output.value) {
-                    output.value += ' ' + transcript;
-                } else {
-                    output.value = transcript;
-                }
-                
-                output.scrollTop = output.scrollHeight;
-                recognition1.stop();
-                
-                setTimeout(() => {
-                    if (isRecognizing) {
-                        resultReceived = false;
-                        recognition1.start();
-                    }
-                }, 250);
-            };
-
-            return recognition1;
-        }
-
-        function initRecognition2() {
-            if (!('webkitSpeechRecognition' in window)) return;
-
-            recognition2 = new webkitSpeechRecognition();
-            recognition2.continuous = true;
-            recognition2.interimResults = true;
-            recognition2.maxAlternatives = 1;
-            recognition2.lang = 'ru-RU';
-            
-            recognition2.onstart = () => {
-                updateStatus2('Говорите...');
-            };
-            
-            recognition2.onend = () => {
+            recognition.onend = () => {
                 if (isRecognizing) {
-                    recognition2.start();
+                    recognition.start();
                 } else {
-                    updateStatus2('Распознавание остановлено');
+                    updateStatus('Распознавание остановлено');
+                    const toggleBtn = document.querySelector('.toggle');
+                    toggleBtn.textContent = '🎤 Старт';
+                    toggleBtn.classList.remove('active');
                 }
             };
             
-            recognition2.onerror = (event) => {
-                console.error('Recognition2 error:', event.error);
-                updateStatus2('Ошибка: ' + event.error);
+            recognition.onerror = (event) => {
+                console.error('Recognition error:', event.error);
+                updateStatus('Ошибка: ' + event.error);
             };
             
-            recognition2.onresult = (event) => {
-                const output = document.getElementById('output2');
-                let finalText = '';
+            let finalTranscript1 = ''; // Для первого распознавателя
+            let interimTranscript = ''; // Для второго распознавателя
+            
+            recognition.onresult = (event) => {
+                interimTranscript = ''; // Очищаем промежуточный результат
                 
-                for (let i = 0; i < event.results.length; i++) {
-                    finalText += event.results[i][0].transcript + ' ';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        // Для первого распознавателя (только финальные результаты)
+                        if (finalTranscript1) {
+                            finalTranscript1 += ' ' + transcript;
+                        } else {
+                            finalTranscript1 = transcript;
+                        }
+                        document.getElementById('output1').value = finalTranscript1;
+                    }
+                    
+                    // Для второго распознавателя (все результаты)
+                    interimTranscript += transcript + ' ';
                 }
                 
-                output.value = finalText;
-                output.scrollTop = output.scrollHeight;
+                // Обновляем второй распознаватель
+                document.getElementById('output2').value = interimTranscript;
+                
+                // Прокручиваем оба текстовых поля
+                document.getElementById('output1').scrollTop = document.getElementById('output1').scrollHeight;
+                document.getElementById('output2').scrollTop = document.getElementById('output2').scrollHeight;
             };
 
-            return recognition2;
+            return recognition;
         }
 
-        function toggleBothRecognitions() {
-            if (!recognition1) initRecognition1();
-            if (!recognition2) initRecognition2();
+        function toggleRecognition() {
+            if (!recognition) {
+                initRecognition();
+            }
             
-            const toggleBtn = document.querySelector('.toggle');
+            if (!recognition) return;
             
             if (!isRecognizing) {
                 try {
-                    recognition1.start();
-                    recognition2.start();
-                    isRecognizing = true;
-                    toggleBtn.textContent = '🛑 Стоп';
-                    toggleBtn.classList.add('active');
+                    recognition.start();
                 } catch (e) {
                     console.error('Start error:', e);
-                    updateStatus1('Ошибка запуска');
-                    updateStatus2('Ошибка запуска');
+                    updateStatus('Ошибка запуска');
                 }
             } else {
                 try {
-                    recognition1.stop();
-                    recognition2.stop();
                     isRecognizing = false;
-                    toggleBtn.textContent = '🎤 Старт';
-                    toggleBtn.classList.remove('active');
+                    recognition.stop();
                 } catch (e) {
                     console.error('Stop error:', e);
-                    updateStatus1('Ошибка остановки');
-                    updateStatus2('Ошибка остановки');
+                    updateStatus('Ошибка остановки');
                 }
             }
         }
@@ -317,21 +279,16 @@
         function clearBoth() {
             document.getElementById('output1').value = '';
             document.getElementById('output2').value = '';
-            updateStatus1('');
-            updateStatus2('');
+            updateStatus('');
         }
 
-        function updateStatus1(message) {
+        function updateStatus(message) {
             document.getElementById('status1').textContent = message;
-        }
-
-        function updateStatus2(message) {
             document.getElementById('status2').textContent = message;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            initRecognition1();
-            initRecognition2();
+            initRecognition();
         });
     </script>
 </body>
