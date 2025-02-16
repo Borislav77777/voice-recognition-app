@@ -116,73 +116,94 @@
         }
 
         // Инициализация распознавания речи
-        function initRecognition() {
-            if (!('webkitSpeechRecognition' in window)) {
-                alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
-                return;
-            }
+function initRecognition() {
+    if (!('webkitSpeechRecognition' in window)) {
+        alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
+        return;
+    }
 
-            recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'ru-RU';
-            
-            recognition.onstart = () => {
-                console.log('Recognition started');
-                updateStatus('Говорите...');
-                const toggleBtn = document.querySelector('.toggle');
-                toggleBtn.textContent = '🛑 Стоп';
-                toggleBtn.classList.add('active');
-                isRecognizing = true;
-            };
-            
-            recognition.onend = () => {
-                console.log('Recognition ended');
-                if (isRecognizing) {
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        console.error('Restart error:', e);
-                        isRecognizing = false;
-                        updateStatus('Ошибка перезапуска');
-                    }
-                } else {
-                    updateStatus('Распознавание остановлено');
-                    const toggleBtn = document.querySelector('.toggle');
-                    toggleBtn.textContent = '🎤 Старт';
-                    toggleBtn.classList.remove('active');
-                }
-            };
-            
-            recognition.onerror = (event) => {
-                console.error('Recognition error:', event.error);
-                if (event.error === 'not-allowed') {
-                    isRecognizing = false;
-                    updateStatus('Нет доступа к микрофону');
-                    const toggleBtn = document.querySelector('.toggle');
-                    toggleBtn.textContent = '🎤 Старт';
-                    toggleBtn.classList.remove('active');
-                }
-            };
-            
-            recognition.onresult = (event) => {
-                let finalTranscript = '';
-                
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                    }
-                }
-                
-                if (finalTranscript) {
-                    const output = document.getElementById('output');
-                    const formattedText = formatText(finalTranscript);
-                    output.value = (output.value + formattedText).trim();
-                    output.scrollTop = output.scrollHeight;
-                }
-            };
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'ru-RU';
+    
+    recognition.onstart = () => {
+        console.log('Recognition started');
+        updateStatus('Говорите...');
+        const toggleBtn = document.querySelector('.toggle');
+        toggleBtn.textContent = '🛑 Стоп';
+        toggleBtn.classList.add('active');
+        isRecognizing = true;
+    };
+    
+    recognition.onend = () => {
+        console.log('Recognition ended');
+        if (isRecognizing) {
+            try {
+                recognition.start();
+                console.log('Restarting recognition...');
+            } catch (e) {
+                console.error('Error restarting:', e);
+                isRecognizing = false;
+                updateStatus('Ошибка перезапуска');
+            }
+        } else {
+            updateStatus('Распознавание остановлено');
+            const toggleBtn = document.querySelector('.toggle');
+            toggleBtn.textContent = '🎤 Старт';
+            toggleBtn.classList.remove('active');
         }
+    };
+    
+    recognition.onerror = (event) => {
+        console.error('Recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+            isRecognizing = false;
+            updateStatus('Нет доступа к микрофону');
+            const toggleBtn = document.querySelector('.toggle');
+            toggleBtn.textContent = '🎤 Старт';
+            toggleBtn.classList.remove('active');
+        }
+    };
+    
+    // Улучшенная обработка результатов
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+
+        const output = document.getElementById('output');
+        
+        // Если есть финальный результат, добавляем его к существующему тексту
+        if (finalTranscript) {
+            // Добавляем пробел между предложениями, если нужно
+            if (output.value && !output.value.endsWith(' ')) {
+                output.value += ' ';
+            }
+            output.value += finalTranscript;
+        }
+        // Если есть промежуточный результат, показываем его временно
+        else if (interimTranscript) {
+            // Сохраняем предыдущий текст и добавляем промежуточный
+            const existingText = output.value;
+            output.value = existingText + (existingText && !existingText.endsWith(' ') ? ' ' : '') + interimTranscript;
+        }
+
+        // Прокручиваем к концу текста
+        output.scrollTop = output.scrollHeight;
+    };
+
+    return recognition;
+}
 
         // Проверка доступа к микрофону
         async function checkMicrophone() {
