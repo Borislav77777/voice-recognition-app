@@ -1,7 +1,147 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <!-- ... (предыдущие стили остаются без изменений) ... -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Распознавание речи</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            height: 90vh;
+        }
+
+        .speech-container {
+            flex: 1;
+            background-color: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            min-width: 300px; /* Добавлено минимальную ширину */
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            font-size: 16px;
+            resize: vertical;
+            transition: all 0.3s ease;
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.1);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .toggle {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .toggle:hover {
+            background-color: #2980b9;
+        }
+
+        .toggle.active {
+            background-color: #e74c3c;
+        }
+
+        .clear {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .clear:hover {
+            background-color: #7f8c8d;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            color: #7f8c8d;
+            min-height: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .speech-container {
+                height: auto;
+                min-height: 400px;
+            }
+
+            textarea {
+                height: 150px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="main-container">
